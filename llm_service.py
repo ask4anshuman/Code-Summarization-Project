@@ -13,43 +13,52 @@ class LLMService:
     api_base_url: Optional[str] = None
 
     def summarize_sql(self, sql_text: str, source_path: Optional[Path] = None) -> str:
-        prompt = self._build_summary_prompt(sql_text, source_path)
+        prompt = self._build_prompt(sql_text, source_path)
         return self._call_provider(prompt)
 
     def describe_sql(self, sql_text: str, source_path: Optional[Path] = None) -> str:
-        prompt = self._build_description_prompt(sql_text, source_path)
+        prompt = self._build_prompt(sql_text, source_path)
         return self._call_provider(prompt)
 
-    def _build_summary_prompt(self, sql_text: str, source_path: Optional[Path] = None) -> str:
+    def _build_prompt(self, sql_text: str, source_path: Optional[Path] = None) -> str:
         sections = [
             "You are an expert SQL documentation assistant.",
-            "Summarize the SQL logic in human-readable form.",
-            "Cover tables, CTEs, join types, filters, and the overall query purpose.",
+            "Analyze the following SQL and produce a structured Confluence-ready document.",
+            "",
+            "The document must contain these sections in order:",
+            "",
+            "## Overview",
+            "Describe what this SQL does at a high level.",
+            "Identify whether it is an ETL load, a report query, a transformation, or another type.",
+            "If it loads a target table, state what kind of data it stores "
+            "(for example: SCD Type 1, SCD Type 2, Fact, Dimension, Staging).",
+            "",
+            "## Tables Used",
+            "List all source tables referenced in the SQL with a brief note on the role of each.",
+            "",
+            "## CTEs",
+            "For each CTE explain its purpose, the tables it uses, any join or filter conditions, "
+            "and any column translations or derivations.",
+            "If there are no CTEs, write: None.",
+            "",
+            "## Joins",
+            "List each join with the join type, the tables involved, and the join condition.",
+            "If there are no joins, write: None.",
+            "",
+            "## Filters",
+            "List all WHERE and HAVING conditions and explain the intent of each.",
+            "If there are no filters, write: None.",
+            "",
+            "## Output",
+            "Describe what the final result set produces.",
+            "If the SQL writes to a target table or view, state the target name and what data it receives.",
+            "",
+            "Use clear markdown formatting with the headings above.",
             "Do not add information that is not present in the SQL.",
         ]
         if source_path:
-            sections.append(f"SQL source path: {source_path}")
-        sections.extend(["SQL:", sql_text.strip()])
-        return "\n".join(str(line) for line in sections)
-
-    def _build_description_prompt(self, sql_text: str, source_path: Optional[Path] = None) -> str:
-        sections = [
-            "You are an expert SQL documentation assistant.",
-            "Analyze the following SQL and explain it clearly.",
-            "Provide separate coverage for:",
-            "1. the number of tables used and their names,",
-            "2. any CTEs used and what each CTE is doing,",
-            "3. join types and the tables involved in each join,",
-            "4. filters applied in WHERE and HAVING clauses,",
-            "5. the overall purpose of the query.",
-            "If a section does not apply, say 'None'.",
-            "Do not add information that is not present in the SQL."
-            "Generate the document in clear markdown format with appropriate headings for each section.",
-            "This document will be published to Confluence, so use formatting that works well in Confluence pages."
-        ]
-        if source_path:
-            sections.append(f"SQL source path: {source_path}")
-        sections.extend(["SQL:", sql_text.strip()])
+            sections.append(f"\nSQL source file: {source_path}")
+        sections.extend(["", "## SQL", "```sql", sql_text.strip(), "```"])
         return "\n".join(str(line) for line in sections)
 
     def _call_provider(self, prompt: str) -> str:
@@ -69,7 +78,7 @@ class LLMService:
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.2,
-            "max_tokens": 600,
+            "max_tokens": 1500,
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",
