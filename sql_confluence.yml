@@ -1,0 +1,30 @@
+repositories:
+  - name: Anshuman_SQL_repo
+    # Local path is only required for local diff/preview mode.
+    # For PR mode (--pr-number), this can stay as '.'.
+    repo_root: "."
+
+    # GitHub repository in owner/repo format (used for PR integration).
+    github_repo: "ask4anshuman/Anshuman_SQL_repo"
+    github_base_url: "https://api.github.com"
+
+    sql_glob: "**/*.sql"
+
+    # Confluence target details (non-secret settings).
+    confluence_base_url: "https://ask4anshuman.atlassian.net/wiki"
+    confluence_space: "~712020e9a8b73325a347c490df3513526fcc64"
+    confluence_parent_page_id: "491521"
+    page_title_prefix: "SQL Summary - "
+
+    # File selection for local mode (diff/preview/publish without --pr-number).
+    git_diff_range: "HEAD~1..HEAD"
+    cache_path: ".sql_confluence_cache.yml"
+
+    # LLM non-secret settings (secrets must be in .env).
+    llm_provider: "openai"
+    llm_model: "gpt-4.1-mini"
+    llm_api_base_url: "https://api.openai.com/v1/chat/completions"
+
+    # Optional managed section markers in Confluence pages.
+    managed_section_start: "<!-- SQL_SUMMARY_START -->"
+    managed_section_end: "<!-- SQL_SUMMARY_END -->"

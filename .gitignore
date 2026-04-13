@@ -1,0 +1,22 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment files
+.env
+.env.*
+
+# Package metadata
+*.egg-info/
+.dist-info/
+
+# Local caches
+.sql_confluence_cache.yml
+page_cache.yml

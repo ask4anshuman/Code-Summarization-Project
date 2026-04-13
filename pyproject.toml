@@ -1,0 +1,26 @@
+[project]
+name = "sql-confluence-summarizer"
+version = "0.1.0"
+description = "Standalone Python tool to summarize SQL logic and publish managed updates to Confluence."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+  { name = "Your Name", email = "you@example.com" }
+]
+keywords = ["sql", "confluence", "summary", "documentation", "git"]
+classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+dependencies = [
+  "PyYAML>=6.0",
+  "sqlparse>=0.4.4",
+  "requests>=2.31",
+  "GitPython>=3.1.39",
+  "python-dotenv>=1.0.0"
+]
+
+[project.scripts]
+sql-confluence-summarizer = "main:main"

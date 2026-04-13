@@ -1,0 +1,5 @@
+PyYAML>=6.0
+sqlparse>=0.4.4
+requests>=2.31
+GitPython>=3.1.39
+python-dotenv>=1.0.0
