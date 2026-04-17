@@ -14,10 +14,10 @@ class GithubManager:
 
     @classmethod
     def from_env(cls, repo: str, api_base_url: str) -> "GithubManager":
-        token = (os.getenv("SQL_GITHUB_TOKEN", "") or os.getenv("SQL_GITHUB_TOKEN", "")).strip()
+        token = (os.getenv("SQL_GITHUB_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")).strip()
         if not token:
             raise ValueError(
-                "GitHub token is missing. Set SQL_GITHUB_TOKEN (preferred) or SQL_GITHUB_TOKEN for PR integration."
+                "GitHub token is missing. Set SQL_GITHUB_TOKEN (preferred) or GITHUB_TOKEN for PR integration."
             )
         if not api_base_url:
             raise ValueError("github_base_url must be set in config for PR integration.")
