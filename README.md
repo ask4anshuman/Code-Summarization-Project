@@ -37,7 +37,7 @@ Secrets that must be provided via `.env`:
 - `LLM_API_KEY`
 - `CONFLUENCE_USERNAME`
 - `CONFLUENCE_API_TOKEN`
-- `SQ_GITHUB_TOKEN` (required for PR integration)
+- `SQL_GITHUB_TOKEN` (required for PR integration)
 
 The `local` provider can be used for local fallback behavior without requiring an external API key.
 
@@ -148,7 +148,7 @@ PR integration requirements:
 
 - Set `github_repo` in your YAML repository config
 - Set `github_base_url` in your YAML repository config
-- Set `SQ_GITHUB_TOKEN` in environment with permission to read PR files and read/write PR comments
+- Set `SQL_GITHUB_TOKEN` in environment with permission to read PR files and read/write PR comments
 
 ### Automatic publish after merge (GitHub Actions)
 

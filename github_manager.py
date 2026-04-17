@@ -14,9 +14,11 @@ class GithubManager:
 
     @classmethod
     def from_env(cls, repo: str, api_base_url: str) -> "GithubManager":
-        token = os.getenv("SQ_GITHUB_TOKEN", "").strip()
+        token = (os.getenv("SQL_GITHUB_TOKEN", "") or os.getenv("GITHUB_TOKEN", "")).strip()
         if not token:
-            raise ValueError("SQ_GITHUB_TOKEN environment variable must be set for PR integration.")
+            raise ValueError(
+                "GitHub token is missing. Set SQL_GITHUB_TOKEN (preferred) or GITHUB_TOKEN for PR integration."
+            )
         if not api_base_url:
             raise ValueError("github_base_url must be set in config for PR integration.")
         return cls(repo=repo, token=token, api_base_url=api_base_url.rstrip("/"))
@@ -38,16 +40,16 @@ class GithubManager:
                 if "/pulls/" in path:
                     raise ValueError(
                         f"GitHub PR not found for '{self.repo}'. Check github_repo, the PR number, "
-                        "and whether SQ_GITHUB_TOKEN can access that repository."
+                        "and whether SQL_GITHUB_TOKEN can access that repository."
                     ) from exc
                 if path.startswith(f"/repos/{self.repo}"):
                     raise ValueError(
                         f"GitHub repository '{self.repo}' was not found. Check github_repo in YAML "
-                        "and ensure SQ_GITHUB_TOKEN has access to that repository."
+                        "and ensure SQL_GITHUB_TOKEN has access to that repository."
                     ) from exc
             if response.status_code in {401, 403}:
                 raise ValueError(
-                    "GitHub API request was denied. Check SQ_GITHUB_TOKEN validity and repository permissions."
+                    "GitHub API request was denied. Check SQL_GITHUB_TOKEN validity and repository permissions."
                 ) from exc
             raise
         return response
@@ -154,7 +156,7 @@ class GithubManager:
         except requests.HTTPError as exc:
             if response.status_code in {401, 403}:
                 raise ValueError(
-                    "GitHub API request was denied. Check SQ_GITHUB_TOKEN validity and repository permissions."
+                    "GitHub API request was denied. Check SQL_GITHUB_TOKEN validity and repository permissions."
                 ) from exc
             raise
 
