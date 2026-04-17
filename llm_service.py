@@ -17,8 +17,34 @@ class LLMService:
         return self._call_provider(prompt)
 
     def describe_sql(self, sql_text: str, source_path: Optional[Path] = None) -> str:
-        prompt = self._build_prompt(sql_text, source_path)
+        prompt = self._build_description_prompt(sql_text, source_path)
         return self._call_provider(prompt)
+
+    def summarize_sql_changes(
+        self,
+        old_sql_text: Optional[str],
+        new_sql_text: Optional[str],
+        source_path: Optional[Path] = None,
+    ) -> str:
+        prompt = self._build_change_prompt(old_sql_text, new_sql_text, source_path)
+        return self._call_provider(prompt)
+
+    def _build_description_prompt(self, sql_text: str, source_path: Optional[Path] = None) -> str:
+        sections = [
+            "You are an expert SQL documentation assistant.",
+            "Describe the SQL in plain business language.",
+            "Your response must explicitly cover the following:",
+            "- Overall purpose of the SQL",
+            "- Number of tables used and the role of each table",
+            "- CTE definitions and what each CTE does",
+            "- Join types and join conditions",
+            "- Filters applied in WHERE and HAVING clauses",
+            "- Derived or translated columns in the output",
+        ]
+        if source_path:
+            sections.append(f"SQL source file: {source_path}")
+        sections.extend(["", "SQL:", "```sql", sql_text.strip(), "```"])
+        return "\n".join(sections)
 
     def _build_prompt(self, sql_text: str, source_path: Optional[Path] = None) -> str:
         sections = [
@@ -60,6 +86,39 @@ class LLMService:
             sections.append(f"\nSQL source file: {source_path}")
         sections.extend(["", "## SQL", "```sql", sql_text.strip(), "```"])
         return "\n".join(str(line) for line in sections)
+
+    def _build_change_prompt(
+        self,
+        old_sql_text: Optional[str],
+        new_sql_text: Optional[str],
+        source_path: Optional[Path] = None,
+    ) -> str:
+        before_sql = (old_sql_text or "").strip() or "-- SQL file did not exist in previous revision"
+        after_sql = (new_sql_text or "").strip() or "-- SQL file does not exist in current revision"
+        sections = [
+            "You are an expert SQL documentation assistant.",
+            "Compare previous SQL and current SQL and return only the changed logic.",
+            "Do not provide full query overview.",
+            "Focus only on modifications in filters, joins, CTEs, tables, and output column derivations.",
+            "If there are no logic changes, say exactly: No documentation-impacting SQL logic change detected.",
+        ]
+        if source_path:
+            sections.append(f"SQL source file: {source_path}")
+        sections.extend(
+            [
+                "",
+                "Previous SQL:",
+                "```sql",
+                before_sql,
+                "```",
+                "",
+                "Current SQL:",
+                "```sql",
+                after_sql,
+                "```",
+            ]
+        )
+        return "\n".join(sections)
 
     def _call_provider(self, prompt: str) -> str:
         if self.provider == "local":

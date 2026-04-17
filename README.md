@@ -1,6 +1,6 @@
 # SQL-to-Confluence Summarizer
 
-Standalone Python tool to summarize SQL logic with an LLM and publish managed summary updates to Confluence.
+Standalone Python tool to summarize SQL logic with an LLM, attach delta-only review snippets to PR comments, and publish managed summary updates to Confluence after merge.
 
 ## Setup
 
@@ -99,23 +99,83 @@ Optional single-file publish:
 python main.py --config sql_confluence.yml publish --sql-path path/to/query.sql
 ```
 
-Optional PR-based publish from GitHub (no local SQL checkout needed):
-
-```bash
-python main.py --config sql_confluence.yml publish --pr-number 123 --yes
-```
-
-PR mode requirements:
-
-- Set `github_repo` in your YAML repository config
-- Set `github_base_url` in your YAML repository config
-- Set `GITHUB_TOKEN` in environment (token must be able to read PR files and write PR comments)
-
 Skip interactive confirmation:
 
 ```bash
 python main.py --config sql_confluence.yml publish --yes
 ```
+
+### preview-pr
+
+Generate a sticky PR comment with:
+
+- a natural-language snippet per changed SQL file that only explains modified SQL logic
+- the target Confluence page title
+- the existing Confluence link when a page already exists
+- a review checkbox that a human must check before merge publication
+
+```bash
+python main.py --config sql_confluence.yml preview-pr --pr-number 123
+```
+
+Behavior details:
+
+- For modified SQL files, the snippet includes only logic deltas (filters, joins, CTEs, tables, output columns/transforms).
+- Formatting-only changes are skipped from the sticky comment.
+- The command never publishes to Confluence.
+
+Optional single-file PR preview:
+
+```bash
+python main.py --config sql_confluence.yml preview-pr --pr-number 123 --sql-path path/to/query.sql
+```
+
+### publish-merged
+
+Publish Confluence updates only after a PR is merged and the sticky PR review comment checkbox is checked.
+
+```bash
+python main.py --config sql_confluence.yml publish-merged --pr-number 123
+```
+
+Optional single-file merged publish:
+
+```bash
+python main.py --config sql_confluence.yml publish-merged --pr-number 123 --sql-path path/to/query.sql
+```
+
+PR integration requirements:
+
+- Set `github_repo` in your YAML repository config
+- Set `github_base_url` in your YAML repository config
+- Set `GITHUB_TOKEN` in environment with permission to read PR files and read/write PR comments
+
+### Automatic publish after merge (GitHub Actions)
+
+This repository includes a workflow at `.github/workflows/sql-confluence-publish-on-merge.yml`.
+
+- Trigger: pull request `closed`
+- Guard: runs only when `merged == true`
+- Action: executes `publish-merged` for that PR number
+
+Required repository secrets for the workflow:
+
+- `LLM_API_KEY`
+- `CONFLUENCE_USERNAME`
+- `CONFLUENCE_API_TOKEN`
+
+If you prefer manual execution, CLI commands remain available.
+
+## PR workflow
+
+1. Run `preview-pr` on an open PR.
+2. Review the generated sticky comment in GitHub (delta-only snippets).
+3. A human checks the approval checkbox in that comment.
+4. Merge the PR.
+5. Publishing runs automatically via workflow using `publish-merged`.
+6. Optional fallback: run `publish-merged` manually via CLI.
+
+The tool intentionally does not publish to Confluence during `preview-pr`.
 
 ## Multi-repository support
 

@@ -4,7 +4,7 @@
 
 This project is a standalone Python application that scans SQL files in a repository, extracts their logic, generates human-readable summaries, and publishes one Confluence page per SQL file. The application is repository-agnostic and can be configured for any target repository and Confluence location.
 
-The system must also track Git-driven SQL changes and propose updates to the summary content for manual approval before publishing.
+The system tracks Git-driven SQL changes, attaches change-only snippets to sticky PR comments for manual review, and publishes updates only after merge when the PR review comment has been approved.
 
 ## Goals
 
@@ -18,7 +18,8 @@ The system must also track Git-driven SQL changes and propose updates to the sum
 - Map each SQL file to a dedicated Confluence page.
 - Publish or update only the managed summary section, preserving manual edits elsewhere.
 - Detect SQL changes via Git and propose only relevant updates.
-- Require explicit approval before sending updates to Confluence.
+- Require explicit approval in a sticky PR comment checkbox before sending updates to Confluence after merge.
+- Support automatic post-merge publication via GitHub Actions while retaining manual CLI publish commands.
 
 ## Components
 
@@ -40,16 +41,24 @@ The system must also track Git-driven SQL changes and propose updates to the sum
    - Page creation and managed section updates.
    - Local page cache mapping SQL files to Confluence page IDs.
 
-5. `confluence_manager.py`
-   - Confluence REST integration.
-   - Page creation and managed section updates.
-   - Local page cache mapping SQL files to Confluence page IDs.
+5. `github_manager.py`
+   - GitHub PR file retrieval.
+   - Sticky PR comment create/update behavior.
+   - Merge-state lookup for merge-only publishing.
 
 6. `git_tracker.py`
    - Git diff detection for changed SQL files.
    - Change-aware summary update gating.
 
-7. `tests/`
+7. `pr_comment.py`
+   - Sticky PR review comment rendering.
+   - Approval checkbox parsing.
+
+8. `sql_change_detector.py`
+   - SQL logic delta extraction between previous and current revisions.
+   - Delta-only snippet rendering for PR comments.
+
+9. `tests/`
    - Unit tests for parser, config, Confluence manager, and Git tracker.
 
 ## Completed work
@@ -61,6 +70,11 @@ The system must also track Git-driven SQL changes and propose updates to the sum
 - Built LLM summary generation in `llm_service.py`, including service provider support and local fallback.
 - Implemented Confluence page management in `confluence_manager.py` with managed summary section merging.
 - Implemented Git-based SQL change detection in `git_tracker.py`.
+- Implemented PR review comment rendering and approval parsing in `pr_comment.py`.
+- Extended GitHub integration to upsert sticky PR comments and inspect merge state.
+- Added SQL change detection in `sql_change_detector.py` and switched PR comments to delta-only snippets.
+- Added GitHub Actions workflow `.github/workflows/sql-confluence-publish-on-merge.yml` for automatic publish after merge.
+- Refactored CLI to support `preview-pr` and `publish-merged` so Confluence publishing is merge-only for PR flows while preserving manual CLI publish.
 - Added sample `sql_confluence.yml` repository config.
 - Added unit tests under `tests/` and validated project dependencies.
 
@@ -97,5 +111,6 @@ repositories:
 - Finalize edge-case SQL parsing for multiple query files and dialect variance.
 - Improve AI prompt quality for clearer Confluence documentation output.
 - Add integration tests for Confluence page creation and update flows (mocked API behavior).
-- Implement a preview diff workflow showing proposed managed section changes before publishing.
+- Add integration tests for sticky PR comment update behavior and merged PR publishing.
+- Add integration tests for PR file rename/remove behavior in delta generation.
 - Add optional non-interactive automation flags and repository onboarding documentation.

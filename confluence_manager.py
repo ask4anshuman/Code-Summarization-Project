@@ -68,6 +68,23 @@ class ConfluenceManager:
         results = response.json().get("results", [])
         return results[0] if results else None
 
+    def get_page_url(self, page: Dict[str, Any]) -> str:
+        links = page.get("_links", {}) if isinstance(page, dict) else {}
+        webui = links.get("webui", "")
+        base = links.get("base", self.base_url.rstrip("/"))
+        if webui.startswith("http://") or webui.startswith("https://"):
+            return webui
+        if webui:
+            return f"{base.rstrip('/')}/{webui.lstrip('/')}"
+        return self.base_url
+
+    def get_existing_page_url(self, file_path: Path, repo_root: Path, prefix: str) -> Optional[str]:
+        title = self.get_page_title(file_path, repo_root, prefix)
+        page = self.get_page_by_title(title)
+        if not page:
+            return None
+        return self.get_page_url(page)
+
     def create_page(self, title: str, content: str) -> Dict[str, Any]:
         url = f"{self.base_url}/rest/api/content"
         payload = {
