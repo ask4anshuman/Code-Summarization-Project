@@ -1,8 +1,8 @@
-name: SQL Doc Publish On Merge
+name: SQL Doc Preview PR Comment
 
 on:
   pull_request_target:
-    types: [closed]
+    types: [opened, synchronize, reopened, edited]
 
 permissions:
   contents: read
@@ -10,8 +10,7 @@ permissions:
   issues: write
 
 jobs:
-  publish-after-merge:
-    if: github.event.pull_request.merged == true
+  preview-pr-comment:
     runs-on: ubuntu-latest
 
     steps:
@@ -52,11 +51,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r sql-doc-tool/requirements.txt
 
-      - name: Publish approved SQL docs to Confluence
+      - name: Generate/update sticky PR review comment
         env:
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           CONFLUENCE_USERNAME: ${{ secrets.CONFLUENCE_USERNAME }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           SQL_GITHUB_TOKEN: ${{ secrets.SQL_GITHUB_TOKEN }}
         run: |
-          python sql-doc-tool/main.py --config .github/sql_confluence.yml --repo Anshuman_SQL_repo publish-merged --pr-number ${{ github.event.pull_request.number }}
+          python sql-doc-tool/main.py --config .github/sql_confluence.yml --repo Anshuman_SQL_repo preview-pr --pr-number ${{ github.event.pull_request.number }}
