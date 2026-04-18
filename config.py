@@ -45,6 +45,11 @@ class RepositoryConfig:
         return os.getenv("LLM_API_KEY")
 
     def validate(self) -> None:
+        """Validate basic repository configuration (non-LLM fields).
+        
+        LLM validation is deferred to validate_llm_requirements() which is only
+        called by commands that actually need LLM (e.g., preview, publish).
+        """
         if not self.name:
             raise ValueError("Repository config must include a non-empty name.")
         if not self.confluence_base_url:
@@ -64,6 +69,13 @@ class RepositoryConfig:
             raise ValueError("Repository config must include github_base_url when github_repo is set.")
         if not self.llm_provider:
             raise ValueError("Repository config must include a non-empty llm_provider.")
+
+    def validate_llm_requirements(self) -> None:
+        """Validate LLM-specific configuration.
+        
+        This is only called by command handlers that actually need LLM (preview, publish, etc).
+        Commands like normalize-confluence-links or commit-confluence-links skip this.
+        """
         if self.llm_provider != "local":
             if not self.llm_model:
                 raise ValueError("Repository config must include a non-empty llm_model.")

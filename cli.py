@@ -603,6 +603,11 @@ def main() -> None:
     config_path = Path(args.config)
     repo_config = load_and_select_repo(config_path, args.repo)
 
+    # Commands that need LLM services
+    llm_commands = {"preview", "preview-pr", "publish", "publish-merged", "describe"}
+    if args.command in llm_commands:
+        repo_config.validate_llm_requirements()
+
     if args.command == "preview":
         preview(repo_config, config_path, getattr(args, "sql_path", None))
     elif args.command == "preview-pr":
