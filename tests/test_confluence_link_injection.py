@@ -23,6 +23,22 @@ class TestConfluenceLinkInjection(unittest.TestCase):
         self.assertIn("https://confluence.example.com/pages/123", first_line)
         self.assertIn("SELECT * FROM orders;", content)
 
+    def test_injects_link_using_in_memory_content_no_disk_read(self):
+        """New file case: file does not exist on disk yet; content passed directly."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sql_file = Path(tmpdir) / "subdir" / "new_query.sql"
+            # File does NOT exist on disk — simulate new PR file loaded from GitHub API
+            in_memory_content = "SELECT * FROM customers;\n"
+            changed = inject_confluence_link(
+                sql_file, "https://confluence.example.com/pages/999", content=in_memory_content
+            )
+            content = sql_file.read_text(encoding="utf-8")
+
+        self.assertTrue(changed)
+        self.assertTrue(content.startswith(CONFLUENCE_LINK_MARKER))
+        self.assertIn("https://confluence.example.com/pages/999", content)
+        self.assertIn("SELECT * FROM customers;", content)
+
     def test_updates_existing_link(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             sql_file = self._write_sql(

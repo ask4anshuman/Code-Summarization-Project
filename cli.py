@@ -172,10 +172,13 @@ def resolve_pr_sql_files(
 CONFLUENCE_LINK_MARKER = "-- [Doc] Confluence:"
 
 
-def inject_confluence_link(sql_file: Path, confluence_url: str) -> bool:
+def inject_confluence_link(sql_file: Path, confluence_url: str, content: Optional[str] = None) -> bool:
     """Inject or update the Confluence documentation link as a SQL comment at the top of the file.
-    Returns True if the file was modified."""
-    content = sql_file.read_text(encoding="utf-8")
+    Accepts optional pre-loaded content to avoid disk reads (e.g. for new files not yet on disk).
+    Returns True if the file was written/modified."""
+    if content is None:
+        content = sql_file.read_text(encoding="utf-8")
+
     new_comment = f"{CONFLUENCE_LINK_MARKER} {confluence_url}"
 
     if CONFLUENCE_LINK_MARKER in content:
@@ -186,9 +189,11 @@ def inject_confluence_link(sql_file: Path, confluence_url: str) -> bool:
         )
         if updated == content:
             return False
+        sql_file.parent.mkdir(parents=True, exist_ok=True)
         sql_file.write_text(updated, encoding="utf-8")
         return True
 
+    sql_file.parent.mkdir(parents=True, exist_ok=True)
     sql_file.write_text(f"{new_comment}\n{content}", encoding="utf-8")
     return True
 
@@ -412,7 +417,7 @@ def publish_merged(
         page = manager.publish_page(sql_file, repo_root, summary_text, repo_config.page_title_prefix)
         page_url = format_confluence_url(page, manager.base_url)
         print(f"Published {sql_file.relative_to(repo_root)} -> page id {page['id']}")
-        if inject_confluence_link(sql_file, page_url):
+        if inject_confluence_link(sql_file, page_url, content=sql_text):
             print(f"  -> Injected Confluence link into {sql_file.name}")
         rel_file = str(sql_file.relative_to(repo_root)).replace("\\", "/")
         change_entry = change_entry_map.get(rel_file)
