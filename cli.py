@@ -328,11 +328,43 @@ def _run_git_command(args: List[str], check: bool = True) -> subprocess.Complete
     )
 
 
+def cleanup_github_sql_cache_files() -> int:
+    """Delete misplaced SQL cache files under .github/ and prune empty dirs.
+
+    These files are artifacts from older repo_root resolution and should never
+    persist in SQL repositories.
+    """
+    repo_root = Path.cwd()
+    github_dir = repo_root / ".github"
+    if not github_dir.exists() or not github_dir.is_dir():
+        return 0
+
+    removed_count = 0
+    for sql_file in github_dir.rglob("*.sql"):
+        sql_file.unlink(missing_ok=True)
+        removed_count += 1
+
+    # Remove any now-empty nested directories, but keep .github itself.
+    for path in sorted(github_dir.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+        if path.is_dir():
+            try:
+                path.rmdir()
+            except OSError:
+                # Directory not empty or not removable; ignore.
+                pass
+
+    return removed_count
+
+
 def commit_confluence_links(target_branch: str, commit_message: str) -> None:
     print("=== Commit Confluence Documentation Links Back To SQL Files ===")
 
     _run_git_command(["config", "user.name", "sql-doc-bot"])
     _run_git_command(["config", "user.email", "sql-doc-bot@noreply.github.com"])
+
+    removed_sql_files = cleanup_github_sql_cache_files()
+    if removed_sql_files:
+        print(f"Removed {removed_sql_files} misplaced SQL cache file(s) from .github/")
 
     status = _run_git_command(["status", "--short"], check=False)
     print("=== Current Git Status ===")
