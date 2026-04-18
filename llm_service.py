@@ -69,7 +69,8 @@ class LLMService:
             "List all source tables referenced in the SQL with a brief note on the role of each.",
             "",
             "## HARD CODE",
-            "Present in tabular formate if you see any SQL code snnipet with hard and dual.",
+            "Paste tabuler output after Runing SQL snippet if you see any SQL code with HARD-CODE select,UNION and DUAL.",
+            "That can be easily runnable without any symatic checks and can be easily copy-pasted to run in any SQL editor.",
             "",            
             "## CTEs",
             "For each CTE explain its purpose, the tables it uses, any join or filter conditions, "
