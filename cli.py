@@ -1,3 +1,10 @@
+"""Command-line orchestration for preview, PR review comments, and publishing.
+
+This module is the central runtime path for both local/manual commands and
+workflow automation. It coordinates config loading, GitHub PR reads/writes,
+SQL change detection, and Confluence publishing.
+"""
+
 import argparse
 import re
 from pathlib import Path

@@ -1,3 +1,9 @@
+"""Sticky PR comment structure, approval parsing, and rendering helpers.
+
+This module is called from cli.py preview-pr and publish-merged to keep a
+single updatable PR comment containing concise SQL change summaries and status.
+"""
+
 from dataclasses import dataclass
 from typing import List, Optional
 

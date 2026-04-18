@@ -1,3 +1,9 @@
+"""LLM prompt construction and provider invocation for SQL summarization.
+
+This module is called from cli.py to generate summaries/descriptions for both
+full SQL content and SQL change-focused prompts used in PR workflows.
+"""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional

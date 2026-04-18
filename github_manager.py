@@ -1,3 +1,9 @@
+"""GitHub API client for PR metadata, file content retrieval, and sticky comments.
+
+This module is called from cli.py PR commands to read PR refs/files and to
+create/update the single sticky review comment used for approval and status.
+"""
+
 import base64
 import os
 from dataclasses import dataclass

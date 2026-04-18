@@ -1,3 +1,9 @@
+"""Git-based SQL file discovery helpers for local mode.
+
+This module is used by cli.py preview/diff/publish commands when running outside
+PR mode to list changed SQL files from a configured git diff range.
+"""
+
 from pathlib import Path
 from typing import List, Optional
 

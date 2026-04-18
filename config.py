@@ -1,3 +1,9 @@
+"""Configuration models and YAML loading utilities.
+
+This module is used by cli.py to load repository settings from sql_confluence.yml
+and validate required fields before any preview/publish operation runs.
+"""
+
 import os
 from dataclasses import dataclass, field
 from pathlib import Path

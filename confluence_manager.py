@@ -1,3 +1,9 @@
+"""Confluence API client and page content management helpers.
+
+This module is called from cli.py during publish and publish-merged flows to
+create/update pages, preserve managed sections, and resolve Confluence links.
+"""
+
 import os
 from dataclasses import dataclass, field
 from pathlib import Path

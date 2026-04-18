@@ -1,3 +1,10 @@
+"""Detects documentation-relevant SQL logic changes and renders concise PR snippets.
+
+This module is called from the CLI PR flows in cli.py, mainly via preview_pr() and
+publish_merged(), where changed SQL files are compared to build sticky PR comments
+and merge-time Confluence publishing summaries.
+"""
+
 from dataclasses import dataclass, field
 import re
 from typing import List, Optional, Sequence, Set
