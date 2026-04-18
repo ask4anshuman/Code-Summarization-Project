@@ -68,6 +68,9 @@ class LLMService:
             "## Tables Used",
             "List all source tables referenced in the SQL with a brief note on the role of each.",
             "",
+            "## HARD CODE",
+            "Present in tabular formate if you see any SQL code snnipet with hard and dual.",
+            "",            
             "## CTEs",
             "For each CTE explain its purpose, the tables it uses, any join or filter conditions, "
             "and any column translations or derivations.",
