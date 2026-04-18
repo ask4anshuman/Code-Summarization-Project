@@ -39,7 +39,14 @@ class RepositoryConfig:
 
     def resolve_repo_root(self, config_dir: Path) -> Path:
         repo_path = Path(self.repo_root)
-        return repo_path.resolve() if repo_path.is_absolute() else (config_dir / repo_path).resolve()
+        if repo_path.is_absolute():
+            return repo_path.resolve()
+        # Special case: "." means the current working directory (repo root in GitHub Actions)
+        # not relative to the config file's directory
+        if str(repo_path) == ".":
+            return Path.cwd()
+        # Otherwise, resolve relative to the config file's directory
+        return (config_dir / repo_path).resolve()
 
     def get_llm_api_key(self) -> Optional[str]:
         return os.getenv("LLM_API_KEY")
