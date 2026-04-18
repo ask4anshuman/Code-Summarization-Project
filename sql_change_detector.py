@@ -164,6 +164,40 @@ def detect_sql_logic_changes(old_sql: Optional[str], new_sql: Optional[str], cha
     )
 
 
+def _extract_in_clause_values(filter_text: str) -> tuple[list[str], str]:
+    """
+    Extract values from IN(...) clauses (e.g., country_code in ('us','in','pk')).
+    Returns (values_list, column_name) or ([], '') if not a simple IN clause.
+    """
+    in_match = re.search(r"([a-z0-9_.]+)\s+in\s*\((.*?)\)", filter_text, re.IGNORECASE)
+    if not in_match:
+        return [], ""
+    
+    column = in_match.group(1).strip()
+    values_str = in_match.group(2)
+    values = re.findall(r"'([^']*)'", values_str)
+    return sorted(values), column
+
+
+def _format_in_value_change(prev_values: list[str], new_values: list[str], column_name: str) -> str:
+    """
+    Create a human-readable description of IN clause value changes.
+    E.g., "country_code filter changed from US, IN, PK to CA, GB; now only CA/GB results included."
+    """
+    prev_set = set(prev_values)
+    new_set = set(new_values)
+    removed = sorted(prev_set - new_set)
+    added = sorted(new_set - prev_set)
+    
+    if not removed and not added:
+        return ""
+    
+    prev_display = ", ".join(v.upper() for v in prev_values) if prev_values else "none"
+    new_display = ", ".join(v.upper() for v in new_values) if new_values else "none"
+    
+    return f"{column_name} filter changed from {prev_display} to {new_display}; now only {new_display} records included."
+
+
 def _append_change_lines(lines: List[str], title: str, added: List[str], removed: List[str]) -> None:
     if not added and not removed:
         return
@@ -183,7 +217,24 @@ def render_delta_snippet(delta: SQLLogicDelta) -> str:
     if not delta.has_logic_changes():
         return "No documentation-impacting SQL logic change detected (formatting/comments only)."
 
-    lines: List[str] = ["Modified SQL logic detected:"]
+    concise_descriptions: List[str] = []
+
+    if delta.removed_filters or delta.added_filters:
+        for old_filter in sorted(delta.removed_filters):
+            prev_values, column = _extract_in_clause_values(old_filter)
+            if prev_values and column:
+                for new_filter in sorted(delta.added_filters):
+                    new_values, new_column = _extract_in_clause_values(new_filter)
+                    if new_values and new_column and new_column.lower() == column.lower():
+                        description = _format_in_value_change(prev_values, new_values, column)
+                        if description:
+                            concise_descriptions.append(description)
+                        break
+
+    if concise_descriptions:
+        return " ".join(concise_descriptions)
+
+    lines: List[str] = ["SQL logic modified:"]
     _append_change_lines(lines, "Filters", delta.added_filters, delta.removed_filters)
     _append_change_lines(lines, "Joins", delta.added_joins, delta.removed_joins)
     _append_change_lines(lines, "CTEs", delta.added_ctes, delta.removed_ctes)

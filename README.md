@@ -122,6 +122,7 @@ Behavior details:
 
 - For modified SQL files, the snippet includes only logic deltas (filters, joins, CTEs, tables, output columns/transforms).
 - Formatting-only changes are skipped from the sticky comment.
+- Delta snippets are formatted as concise, business-readable descriptions when possible (e.g., "country_code filter changed from US, IN, PK to CA, GB; now only CA, GB records included.").
 - On every new PR commit (`synchronize`) the same sticky comment is updated in place.
 - If there are no remaining documentation-impacting deltas after new commits, the sticky comment is still refreshed with a no-change status.
 - If a reviewer had already checked the approval checkbox, that checked state is preserved when preview content is refreshed.

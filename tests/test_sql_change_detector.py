@@ -1,6 +1,6 @@
 import unittest
 
-from sql_change_detector import detect_sql_logic_changes, render_delta_snippet
+from sql_change_detector import detect_sql_logic_changes, _extract_in_clause_values, _format_in_value_change, render_delta_snippet
 
 
 class TestSQLChangeDetector(unittest.TestCase):
@@ -24,6 +24,29 @@ class TestSQLChangeDetector(unittest.TestCase):
         delta = detect_sql_logic_changes(None, "SELECT id FROM orders", change_kind="added")
         snippet = render_delta_snippet(delta)
         self.assertIn("New SQL file added", snippet)
+
+    def test_extract_in_clause_values(self):
+        filter_text = "cp.country_code in('us','in','pk')"
+        values, column = _extract_in_clause_values(filter_text)
+        self.assertEqual(sorted(values), ['in', 'pk', 'us'])
+        self.assertEqual(column.lower(), 'cp.country_code')
+
+    def test_format_in_value_change(self):
+        description = _format_in_value_change(['us', 'in', 'pk'], ['ca', 'gb'], 'country_code')
+        self.assertIn("country_code", description)
+        self.assertIn("US, IN, PK", description)
+        self.assertIn("CA, GB", description)
+        self.assertIn("now only CA, GB records included", description)
+
+    def test_render_snippet_concise_for_in_clause_change(self):
+        old_sql = "SELECT * FROM customers WHERE country_code IN ('US', 'IN', 'PK')"
+        new_sql = "SELECT * FROM customers WHERE country_code IN ('CA', 'GB')"
+        delta = detect_sql_logic_changes(old_sql, new_sql)
+        snippet = render_delta_snippet(delta)
+        self.assertIn("country_code", snippet.lower())
+        self.assertIn("CA, GB", snippet)
+        self.assertNotIn("Added:", snippet)
+        self.assertNotIn("Removed:", snippet)
 
 
 if __name__ == "__main__":
