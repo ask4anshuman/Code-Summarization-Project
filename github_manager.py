@@ -191,11 +191,23 @@ class GithubManager:
         return comments
 
     def find_pr_comment(self, pr_number: int, marker: str) -> Optional[Dict[str, object]]:
+        matching_comments: List[Dict[str, object]] = []
         for comment in self.list_issue_comments(pr_number):
             body = comment.get("body", "")
             if isinstance(body, str) and marker in body:
-                return comment
-        return None
+                matching_comments.append(comment)
+        if not matching_comments:
+            return None
+
+        def _sort_key(comment: Dict[str, object]) -> tuple[str, int]:
+            created_at = str(comment.get("created_at", ""))
+            try:
+                comment_id = int(comment.get("id", 0))
+            except (TypeError, ValueError):
+                comment_id = 0
+            return (created_at, comment_id)
+
+        return max(matching_comments, key=_sort_key)
 
     def create_pr_comment(self, pr_number: int, body: str) -> Dict[str, str]:
         response = self._request(

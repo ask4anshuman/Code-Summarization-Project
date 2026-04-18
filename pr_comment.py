@@ -6,6 +6,7 @@ COMMENT_MARKER = "<!-- sql-confluence-bot:pr-doc-preview -->"
 APPROVAL_TEXT = (
     "I have reviewed this generated summary and approve publishing to Confluence after merge."
 )
+NO_CHANGES_TEXT = "No documentation-impacting SQL logic changes are currently detected in this PR."
 
 
 @dataclass
@@ -29,7 +30,11 @@ def is_comment_approved(comment_body: str) -> bool:
     return f"- [x] {APPROVAL_TEXT}".lower() in normalized
 
 
-def build_pr_review_comment(entries: List[PRCommentEntry], approved: bool = False) -> str:
+def build_pr_review_comment(
+    entries: List[PRCommentEntry],
+    approved: bool = False,
+    no_changes_note: Optional[str] = None,
+) -> str:
     checkbox = "x" if approved else " "
     lines = [
         COMMENT_MARKER,
@@ -40,6 +45,13 @@ def build_pr_review_comment(entries: List[PRCommentEntry], approved: bool = Fals
         f"- [{checkbox}] {APPROVAL_TEXT}",
         "",
     ]
+
+    if no_changes_note:
+        lines.extend([
+            "Current status:",
+            no_changes_note,
+            "",
+        ])
 
     for entry in entries:
         lines.extend(

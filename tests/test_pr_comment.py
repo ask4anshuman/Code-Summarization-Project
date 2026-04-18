@@ -1,6 +1,13 @@
 import unittest
 
-from pr_comment import APPROVAL_TEXT, PRCommentEntry, build_pr_review_comment, build_summary_snippet, is_comment_approved
+from pr_comment import (
+    APPROVAL_TEXT,
+    NO_CHANGES_TEXT,
+    PRCommentEntry,
+    build_pr_review_comment,
+    build_summary_snippet,
+    is_comment_approved,
+)
 
 
 class TestPRComment(unittest.TestCase):
@@ -23,6 +30,11 @@ class TestPRComment(unittest.TestCase):
         self.assertIn(APPROVAL_TEXT, unchecked)
         self.assertFalse(is_comment_approved(unchecked))
         self.assertTrue(is_comment_approved(checked))
+
+    def test_build_comment_with_no_change_note(self):
+        comment = build_pr_review_comment([], approved=False, no_changes_note=NO_CHANGES_TEXT)
+        self.assertIn("Current status:", comment)
+        self.assertIn(NO_CHANGES_TEXT, comment)
 
 
 if __name__ == "__main__":

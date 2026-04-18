@@ -9,7 +9,13 @@ from confluence_manager import ConfluenceManager
 from config import AppConfig, RepositoryConfig, get_repository_config, load_config
 from github_manager import GithubManager
 from git_tracker import list_changed_sql_files
-from pr_comment import COMMENT_MARKER, PRCommentEntry, build_pr_review_comment, is_comment_approved
+from pr_comment import (
+    COMMENT_MARKER,
+    NO_CHANGES_TEXT,
+    PRCommentEntry,
+    build_pr_review_comment,
+    is_comment_approved,
+)
 from sql_change_detector import detect_sql_logic_changes, render_delta_snippet
 
 
@@ -233,12 +239,20 @@ def preview_pr(
     if not repo_config.github_repo:
         raise ValueError("github_repo must be set in config to use preview-pr.")
     github = GithubManager.from_env(repo_config.github_repo, repo_config.github_base_url)
+    existing_comment = github.find_pr_comment(pr_number, COMMENT_MARKER)
+    was_approved = False
+    if existing_comment is not None:
+        comment_body = str(existing_comment.get("body", ""))
+        was_approved = is_comment_approved(comment_body)
 
     entries = _build_sql_change_entries(repo_config, repo_root, pr_number, github, sql_path)
     if not entries:
-        print("No documentation-impacting SQL logic changes found in the PR.")
+        comment = build_pr_review_comment([], approved=was_approved, no_changes_note=NO_CHANGES_TEXT)
+        github.upsert_pr_comment(pr_number, COMMENT_MARKER, comment)
+        print("No documentation-impacting SQL logic changes found in the PR. Updated sticky comment status.")
         return
-    comment = build_pr_review_comment(entries, approved=False)
+
+    comment = build_pr_review_comment(entries, approved=was_approved)
     github.upsert_pr_comment(pr_number, COMMENT_MARKER, comment)
     print(f"Updated PR #{pr_number} review comment for {len(entries)} SQL file(s) with delta-only snippets.")
 
