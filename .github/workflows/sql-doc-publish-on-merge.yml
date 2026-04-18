@@ -24,7 +24,7 @@ jobs:
       - name: Checkout SQL repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          repository: ${{ github.repository }}
           ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
           token: ${{ secrets.SQL_GITHUB_TOKEN }}
           fetch-depth: 0
@@ -78,57 +78,12 @@ jobs:
         run: |
           python sql-doc-tool/main.py --config .github/sql_confluence.yml --repo Anshuman_SQL_repo publish-merged --pr-number "$PR_NUMBER"
 
-      - name: Move Confluence link comment to line 4 in SQL files
+      - name: Normalize Confluence link comments in SQL files
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          marker_prefix = "-- [Doc] Confluence:"
-          updated = 0
-
-          for sql_file in Path('.').rglob('*.sql'):
-            text = sql_file.read_text(encoding='utf-8')
-            lines = text.splitlines()
-
-            marker_index = None
-            for idx, line in enumerate(lines):
-              if line.startswith(marker_prefix):
-                marker_index = idx
-                break
-
-            if marker_index is None:
-              continue
-
-            # Keep the original comment line in place and only push it down by
-            # inserting blank lines above it until it lands on line 4.
-            if marker_index < 3:
-              pad_count = 3 - marker_index
-              lines = ([""] * pad_count) + lines
-              new_text = '\n'.join(lines)
-              if text.endswith('\n'):
-                new_text += '\n'
-              sql_file.write_text(new_text, encoding='utf-8')
-              updated += 1
-              print(f"Pushed Confluence comment to line 4 in {sql_file}")
-
-          print(f"Total SQL files normalized: {updated}")
-          PY
+          python sql-doc-tool/main.py --config .github/sql_confluence.yml --repo Anshuman_SQL_repo normalize-confluence-links --line-number 4
 
       - name: Commit Confluence documentation links back to SQL files
         env:
           TARGET_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || github.event.pull_request.base.ref }}
         run: |
-          git config user.name "sql-doc-bot"
-          git config user.email "sql-doc-bot@noreply.github.com"
-          echo "Scanning for SQL file modifications..."
-          git status --short
-          git add -A -- '*.sql' '**/*.sql'
-          if ! git diff --cached --quiet; then
-            echo "Staged SQL files:"
-            git diff --cached --name-only -- '*.sql' '**/*.sql'
-            git commit -m "docs: add Confluence documentation links to SQL files [skip ci]"
-            git push origin "HEAD:${TARGET_BRANCH}"
-            echo "Committed Confluence links to SQL files."
-          else
-            echo "No SQL files changed by link injection, skipping commit."
-          fi
+          python sql-doc-tool/main.py --config .github/sql_confluence.yml --repo Anshuman_SQL_repo commit-confluence-links --target-branch "${TARGET_BRANCH}"

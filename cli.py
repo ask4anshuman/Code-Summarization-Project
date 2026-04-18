@@ -7,6 +7,7 @@ SQL change detection, and Confluence publishing.
 
 import argparse
 import re
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -110,6 +111,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional path to a single SQL file from the PR to publish.",
     )
 
+    parser_normalize_links = subparsers.add_parser(
+        "normalize-confluence-links",
+        help="Ensure Confluence link comments from cache exist in SQL files and place marker on a target line.",
+    )
+    parser_normalize_links.add_argument(
+        "--line-number",
+        type=int,
+        default=4,
+        help="1-based target line number where the Confluence marker should be placed.",
+    )
+
+    parser_commit_links = subparsers.add_parser(
+        "commit-confluence-links",
+        help="Commit and push SQL files containing Confluence link updates.",
+    )
+    parser_commit_links.add_argument(
+        "--target-branch",
+        required=True,
+        help="Remote branch to push changes to (for example main or release branch).",
+    )
+    parser_commit_links.add_argument(
+        "--commit-message",
+        default="docs: add Confluence documentation links to SQL files [skip ci]",
+        help="Commit message used when SQL file changes are present.",
+    )
+
     return parser
 
 
@@ -204,6 +231,125 @@ def inject_confluence_link(sql_file: Path, confluence_url: str, content: Optiona
     sql_file.parent.mkdir(parents=True, exist_ok=True)
     sql_file.write_text(f"{new_comment}\n{content}", encoding="utf-8")
     return True
+
+
+def move_confluence_marker_to_line(sql_file: Path, target_line_number: int = 4) -> bool:
+    """Move the Confluence marker comment to a target 1-based line number.
+    Returns True if file content was modified."""
+    if target_line_number < 1:
+        raise ValueError("target_line_number must be >= 1")
+
+    text = sql_file.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    marker_index = None
+    for idx, line in enumerate(lines):
+        if line.startswith(CONFLUENCE_LINK_MARKER):
+            marker_index = idx
+            break
+
+    if marker_index is None:
+        return False
+
+    marker_line = lines.pop(marker_index)
+    target_index = target_line_number - 1
+    while len(lines) < target_index:
+        lines.append("")
+    lines.insert(target_index, marker_line)
+
+    new_text = "\n".join(lines)
+    if text.endswith("\n"):
+        new_text += "\n"
+
+    if new_text == text:
+        return False
+
+    sql_file.write_text(new_text, encoding="utf-8")
+    return True
+
+
+def normalize_confluence_links(
+    repo_config: RepositoryConfig,
+    config_path: Path,
+    target_line_number: int = 4,
+) -> None:
+    """Ensure/update Confluence markers from cache and normalize marker placement in SQL files."""
+    print("=== Normalize Confluence Links In SQL Files ===")
+    repo_root = resolve_repo_root(repo_config, config_path)
+    manager = create_confluence_manager(repo_config)
+    manager.load_cache()
+
+    if not isinstance(manager.cache, dict) or not manager.cache:
+        print("No cache entries found. Nothing to normalize.")
+        return
+
+    updated = 0
+    scanned = 0
+    for file_key, page_id in manager.cache.items():
+        scanned += 1
+        sql_file = Path(str(file_key))
+        if not sql_file.is_absolute():
+            sql_file = repo_root / sql_file
+
+        if not sql_file.exists() or sql_file.suffix.lower() != ".sql":
+            continue
+
+        page_id_text = str(page_id).strip()
+        if not page_id_text:
+            continue
+
+        if manager.base_url and manager.space:
+            confluence_url = f"{manager.base_url.rstrip('/')}/spaces/{manager.space}/pages/{page_id_text}"
+        elif manager.base_url:
+            confluence_url = f"{manager.base_url.rstrip('/')}/pages/{page_id_text}"
+        else:
+            continue
+
+        changed = False
+        if inject_confluence_link(sql_file, confluence_url):
+            changed = True
+        if move_confluence_marker_to_line(sql_file, target_line_number=target_line_number):
+            changed = True
+
+        if changed:
+            updated += 1
+            print(f"Normalized Confluence link marker in {sql_file}")
+
+    print(f"Scanned cache entries: {scanned}")
+    print(f"Total SQL files normalized: {updated}")
+
+
+def _run_git_command(args: List[str], check: bool = True) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args],
+        check=check,
+        capture_output=True,
+        text=True,
+    )
+
+
+def commit_confluence_links(target_branch: str, commit_message: str) -> None:
+    print("=== Commit Confluence Documentation Links Back To SQL Files ===")
+
+    _run_git_command(["config", "user.name", "sql-doc-bot"])
+    _run_git_command(["config", "user.email", "sql-doc-bot@noreply.github.com"])
+
+    status = _run_git_command(["status", "--short"], check=False)
+    print("=== Current Git Status ===")
+    print(status.stdout.strip() or "(clean)")
+
+    _run_git_command(["add", "-A", "--", "*.sql", "**/*.sql"])
+
+    diff_check = _run_git_command(["diff", "--cached", "--quiet"], check=False)
+    if diff_check.returncode == 0:
+        print("INFO: No SQL file changes detected. Nothing to commit.")
+        return
+    if diff_check.returncode != 1:
+        raise RuntimeError("Unable to evaluate staged changes before commit.")
+
+    _run_git_command(["commit", "-m", commit_message])
+    _run_git_command(["push", "origin", f"HEAD:{target_branch}", "-v"])
+    print(f"SUCCESS: Committed Confluence links to SQL files on {target_branch}")
 
 
 def format_confluence_url(page: Dict[str, str], fallback_base: str) -> str:
@@ -484,6 +630,21 @@ def main() -> None:
         )
     elif args.command == "describe":
         describe(repo_config, config_path, getattr(args, "sql_path", None))
+    elif args.command == "normalize-confluence-links":
+        normalize_confluence_links(
+            repo_config,
+            config_path,
+            target_line_number=getattr(args, "line_number", 4),
+        )
+    elif args.command == "commit-confluence-links":
+        commit_confluence_links(
+            target_branch=getattr(args, "target_branch"),
+            commit_message=getattr(
+                args,
+                "commit_message",
+                "docs: add Confluence documentation links to SQL files [skip ci]",
+            ),
+        )
     else:
         parser.print_help()
 

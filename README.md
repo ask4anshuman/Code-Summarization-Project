@@ -168,6 +168,34 @@ Optional single-file merged publish:
 python main.py --config sql_confluence.yml publish-merged --pr-number 123 --sql-path path/to/query.sql
 ```
 
+### normalize-confluence-links
+
+Ensure Confluence link markers exist for SQL files from the local cache mapping and place the marker comment on a target line (default line 4).
+
+```bash
+python main.py --config sql_confluence.yml normalize-confluence-links
+```
+
+Optional target line number:
+
+```bash
+python main.py --config sql_confluence.yml normalize-confluence-links --line-number 4
+```
+
+### commit-confluence-links
+
+Commit and push SQL files that contain Confluence link marker updates.
+
+```bash
+python main.py --config sql_confluence.yml commit-confluence-links --target-branch main
+```
+
+Optional custom commit message:
+
+```bash
+python main.py --config sql_confluence.yml commit-confluence-links --target-branch main --commit-message "docs: sync SQL links"
+```
+
 PR integration requirements:
 
 - Set `github_repo` in your YAML repository config

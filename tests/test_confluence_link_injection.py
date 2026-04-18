@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from cli import inject_confluence_link, CONFLUENCE_LINK_MARKER
+from cli import CONFLUENCE_LINK_MARKER, inject_confluence_link, move_confluence_marker_to_line
 
 
 class TestConfluenceLinkInjection(unittest.TestCase):
@@ -80,6 +80,30 @@ class TestConfluenceLinkInjection(unittest.TestCase):
                 content = (Path(tmpdir) / filename).read_text(encoding="utf-8")
                 self.assertIn(url, content)
                 self.assertIn(CONFLUENCE_LINK_MARKER, content)
+
+    def test_move_marker_to_line_four(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sql_file = self._write_sql(
+                tmpdir,
+                "-- [Doc] Confluence: https://confluence.example.com/pages/1\nSELECT 1;\n",
+            )
+            changed = move_confluence_marker_to_line(sql_file, target_line_number=4)
+            content = sql_file.read_text(encoding="utf-8")
+
+        self.assertTrue(changed)
+        lines = content.splitlines()
+        self.assertGreaterEqual(len(lines), 4)
+        self.assertTrue(lines[3].startswith(CONFLUENCE_LINK_MARKER))
+
+    def test_move_marker_to_line_four_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sql_file = self._write_sql(
+                tmpdir,
+                "SELECT col1\nFROM tab\nWHERE x = 1\n-- [Doc] Confluence: https://confluence.example.com/pages/1\n",
+            )
+            changed = move_confluence_marker_to_line(sql_file, target_line_number=4)
+
+        self.assertFalse(changed)
 
 
 if __name__ == "__main__":
