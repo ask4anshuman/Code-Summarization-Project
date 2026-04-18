@@ -1,6 +1,6 @@
 [project]
 name = "sql-confluence-summarizer"
-version = "0.1.0"
+version = "2026.04.18"
 description = "Standalone Python tool to summarize SQL logic and publish managed updates to Confluence."
 readme = "README.md"
 requires-python = ">=3.11"
