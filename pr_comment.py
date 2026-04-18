@@ -40,7 +40,7 @@ def build_pr_review_comment(
         COMMENT_MARKER,
         "# SQL Documentation Review",
         "",
-        "Review the generated SQL summary snippets below. Confluence publication will happen only after the PR is merged and this checkbox is checked.",
+        "Concise SQL change summary for this PR. Publication happens only after merge and approval.",
         "",
         f"- [{checkbox}] {APPROVAL_TEXT}",
         "",
@@ -58,12 +58,10 @@ def build_pr_review_comment(
             [
                 f"## {entry.file_path}",
                 "",
-                "Summary snippet:",
                 entry.snippet,
                 "",
-                f"Confluence page title: `{entry.page_title}`",
-                f"Confluence link: {entry.confluence_url or 'Will be created after merge'}",
-                f"Publish status: {entry.publish_status}",
+                f"Confluence: {entry.confluence_url or 'Will be created after merge'}",
+                f"Status: {entry.publish_status}",
                 "",
             ]
         )

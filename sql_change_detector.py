@@ -14,6 +14,48 @@ def _remove_line_breaks(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+def _split_top_level_and(expression: str) -> List[str]:
+    parts: List[str] = []
+    current: List[str] = []
+    depth = 0
+    i = 0
+    while i < len(expression):
+        char = expression[i]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth = max(0, depth - 1)
+
+        if depth == 0 and expression[i : i + 3].upper() == "AND":
+            before_ok = i == 0 or expression[i - 1].isspace() or expression[i - 1] == ")"
+            after_index = i + 3
+            after_ok = after_index >= len(expression) or expression[after_index].isspace() or expression[after_index] == "("
+            if before_ok and after_ok:
+                part = _remove_line_breaks("".join(current))
+                if part:
+                    parts.append(part)
+                current = []
+                i += 3
+                continue
+
+        current.append(char)
+        i += 1
+
+    part = _remove_line_breaks("".join(current))
+    if part:
+        parts.append(part)
+    return parts
+
+
+def _extract_clause_predicates(sql: str, clause_name: str) -> List[str]:
+    pattern = rf"\b{clause_name}\s+(.*?)(?=\bGROUP\b|\bORDER\b|\bHAVING\b|\bLIMIT\b|\bOFFSET\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|$)"
+    matches = re.findall(pattern, sql, flags=re.IGNORECASE | re.DOTALL)
+    predicates: List[str] = []
+    for match in matches:
+        predicates.extend(_split_top_level_and(match))
+    return predicates
+
+
 def _split_columns(select_clause: str) -> List[str]:
     items = re.split(r",(?![^()]*\))", select_clause)
     return [item.strip() for item in items if item.strip()]
@@ -55,22 +97,8 @@ def extract_join_clauses(sql: str) -> List[str]:
 
 
 def extract_filters(sql: str) -> List[str]:
-    filters: List[str] = []
-    where_match = re.search(
-        r"\bWHERE\s+(.*?)(?=\bGROUP\b|\bORDER\b|\bHAVING\b|\bLIMIT\b|\bOFFSET\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|$)",
-        sql,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-    if where_match:
-        filters.append(_remove_line_breaks(where_match.group(1)))
-
-    having_match = re.search(
-        r"\bHAVING\s+(.*?)(?=\bGROUP\b|\bORDER\b|\bLIMIT\b|\bOFFSET\b|\bUNION\b|\bEXCEPT\b|\bINTERSECT\b|$)",
-        sql,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-    if having_match:
-        filters.append(_remove_line_breaks(having_match.group(1)))
+    filters = _extract_clause_predicates(sql, "WHERE")
+    filters.extend(_extract_clause_predicates(sql, "HAVING"))
     return filters
 
 
@@ -195,7 +223,88 @@ def _format_in_value_change(prev_values: list[str], new_values: list[str], colum
     prev_display = ", ".join(v.upper() for v in prev_values) if prev_values else "none"
     new_display = ", ".join(v.upper() for v in new_values) if new_values else "none"
     
-    return f"{column_name} filter changed from {prev_display} to {new_display}; now only {new_display} records included."
+    readable_column = column_name.split(".")[-1]
+    return f"{readable_column} filter changed from {prev_display} to {new_display}; now only {new_display} records are included."
+
+
+def _shorten_condition(condition: str) -> str:
+    compact = condition.replace(">=", " >= ").replace("<=", " <= ")
+    compact = compact.replace("<>", " <> ").replace("!=", " != ")
+    compact = compact.replace("=", " = ").replace(">", " > ").replace("<", " < ")
+    compact = _remove_line_breaks(compact)
+    if len(compact) <= 80:
+        return compact
+    return f"{compact[:77].rstrip()}..."
+
+
+def _render_short_change_summary(delta: SQLLogicDelta) -> str:
+    statements: List[str] = []
+
+    matched_filter_columns: set[str] = set()
+    for old_filter in sorted(delta.removed_filters):
+        prev_values, column = _extract_in_clause_values(old_filter)
+        if not prev_values or not column:
+            continue
+        for new_filter in sorted(delta.added_filters):
+            new_values, new_column = _extract_in_clause_values(new_filter)
+            if new_values and new_column and new_column.lower() == column.lower():
+                description = _format_in_value_change(prev_values, new_values, column)
+                if description:
+                    statements.append(description)
+                    matched_filter_columns.add(column.lower())
+                break
+
+    unmatched_added_filters = [
+        item for item in delta.added_filters if _extract_in_clause_values(item)[1].lower() not in matched_filter_columns
+    ]
+    unmatched_removed_filters = [
+        item for item in delta.removed_filters if _extract_in_clause_values(item)[1].lower() not in matched_filter_columns
+    ]
+
+    if unmatched_added_filters or unmatched_removed_filters:
+        details: List[str] = []
+        if unmatched_added_filters:
+            details.append(f"added filter {_shorten_condition(unmatched_added_filters[0])}")
+        if unmatched_removed_filters:
+            details.append(f"removed filter {_shorten_condition(unmatched_removed_filters[0])}")
+        statements.append("SQL filter logic changed: " + "; ".join(details) + ".")
+
+    if delta.added_joins or delta.removed_joins:
+        details: List[str] = []
+        if delta.added_joins:
+            details.append("join conditions were added")
+        if delta.removed_joins:
+            details.append("join conditions were removed")
+        statements.append("SQL join logic changed: " + " and ".join(details) + ".")
+
+    if delta.added_columns or delta.removed_columns:
+        details: List[str] = []
+        if delta.added_columns:
+            details.append("output columns were added")
+        if delta.removed_columns:
+            details.append("output columns were removed")
+        statements.append("SQL output changed: " + " and ".join(details) + ".")
+
+    if delta.added_tables or delta.removed_tables:
+        details: List[str] = []
+        if delta.added_tables:
+            details.append("new source tables were referenced")
+        if delta.removed_tables:
+            details.append("some source tables were removed")
+        statements.append("SQL source scope changed: " + " and ".join(details) + ".")
+
+    if delta.added_ctes or delta.removed_ctes:
+        details: List[str] = []
+        if delta.added_ctes:
+            details.append("new CTE steps were added")
+        if delta.removed_ctes:
+            details.append("some CTE steps were removed")
+        statements.append("SQL transformation flow changed: " + " and ".join(details) + ".")
+
+    if not statements:
+        return "SQL logic changed in a small way."
+
+    return " ".join(statements[:2])
 
 
 def _append_change_lines(lines: List[str], title: str, added: List[str], removed: List[str]) -> None:
@@ -217,27 +326,4 @@ def render_delta_snippet(delta: SQLLogicDelta) -> str:
     if not delta.has_logic_changes():
         return "No documentation-impacting SQL logic change detected (formatting/comments only)."
 
-    concise_descriptions: List[str] = []
-
-    if delta.removed_filters or delta.added_filters:
-        for old_filter in sorted(delta.removed_filters):
-            prev_values, column = _extract_in_clause_values(old_filter)
-            if prev_values and column:
-                for new_filter in sorted(delta.added_filters):
-                    new_values, new_column = _extract_in_clause_values(new_filter)
-                    if new_values and new_column and new_column.lower() == column.lower():
-                        description = _format_in_value_change(prev_values, new_values, column)
-                        if description:
-                            concise_descriptions.append(description)
-                        break
-
-    if concise_descriptions:
-        return " ".join(concise_descriptions)
-
-    lines: List[str] = ["SQL logic modified:"]
-    _append_change_lines(lines, "Filters", delta.added_filters, delta.removed_filters)
-    _append_change_lines(lines, "Joins", delta.added_joins, delta.removed_joins)
-    _append_change_lines(lines, "CTEs", delta.added_ctes, delta.removed_ctes)
-    _append_change_lines(lines, "Output columns/transforms", delta.added_columns, delta.removed_columns)
-    _append_change_lines(lines, "Tables", delta.added_tables, delta.removed_tables)
-    return "\n".join(lines)
+    return _render_short_change_summary(delta)
