@@ -1,4 +1,5 @@
 import argparse
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -166,6 +167,30 @@ def resolve_pr_sql_files(
     sql_files = [repo_root / Path(path) for path in sql_contents.keys()]
     file_content_map = {repo_root / Path(path): content for path, content in sql_contents.items()}
     return sql_files, file_content_map, github
+
+
+CONFLUENCE_LINK_MARKER = "-- [Doc] Confluence:"
+
+
+def inject_confluence_link(sql_file: Path, confluence_url: str) -> bool:
+    """Inject or update the Confluence documentation link as a SQL comment at the top of the file.
+    Returns True if the file was modified."""
+    content = sql_file.read_text(encoding="utf-8")
+    new_comment = f"{CONFLUENCE_LINK_MARKER} {confluence_url}"
+
+    if CONFLUENCE_LINK_MARKER in content:
+        updated = re.sub(
+            r"-- \[Doc\] Confluence:.*",
+            new_comment,
+            content,
+        )
+        if updated == content:
+            return False
+        sql_file.write_text(updated, encoding="utf-8")
+        return True
+
+    sql_file.write_text(f"{new_comment}\n{content}", encoding="utf-8")
+    return True
 
 
 def format_confluence_url(page: Dict[str, str], fallback_base: str) -> str:
@@ -387,6 +412,8 @@ def publish_merged(
         page = manager.publish_page(sql_file, repo_root, summary_text, repo_config.page_title_prefix)
         page_url = format_confluence_url(page, manager.base_url)
         print(f"Published {sql_file.relative_to(repo_root)} -> page id {page['id']}")
+        if inject_confluence_link(sql_file, page_url):
+            print(f"  -> Injected Confluence link into {sql_file.name}")
         rel_file = str(sql_file.relative_to(repo_root)).replace("\\", "/")
         change_entry = change_entry_map.get(rel_file)
         snippet = change_entry.snippet if change_entry else "Published SQL documentation update after merge."

@@ -11,7 +11,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
   issues: write
 
@@ -25,7 +25,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+          token: ${{ secrets.SQL_GITHUB_TOKEN }}
           fetch-depth: 0
           clean: true
 
@@ -76,3 +77,16 @@ jobs:
           PR_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.pr_number || github.event.pull_request.number }}
         run: |
           python sql-doc-tool/main.py --config .github/sql_confluence.yml --repo Anshuman_SQL_repo publish-merged --pr-number "$PR_NUMBER"
+
+      - name: Commit Confluence documentation links back to SQL files
+        run: |
+          git config user.name "sql-doc-bot"
+          git config user.email "sql-doc-bot@noreply.github.com"
+          git add -A -- '*.sql'
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: add Confluence documentation links to SQL files [skip ci]"
+            git push
+            echo "Committed Confluence links to SQL files."
+          else
+            echo "No SQL files changed by link injection, skipping commit."
+          fi
