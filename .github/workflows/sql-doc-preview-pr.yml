@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   preview-pr-comment:
+    if: false # Default to not running for any events until we confirm the correct conditions for PR previews
     runs-on: ubuntu-latest
 
     steps:

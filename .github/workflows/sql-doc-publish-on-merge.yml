@@ -17,7 +17,8 @@ permissions:
 
 jobs:
   publish-after-merge:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    if: false # Default to not running for any events until we confirm the correct conditions for merged PRs
+    #if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
