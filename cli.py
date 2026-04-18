@@ -131,6 +131,7 @@ def create_confluence_manager(repo_config: RepositoryConfig) -> ConfluenceManage
         base_url=repo_config.confluence_base_url,
         space=repo_config.confluence_space,
         parent_page_id=repo_config.confluence_parent_page_id,
+        parent_page_map=repo_config.confluence_parent_page_map,
         cache_path=repo_config.cache_path,
         managed_section_start=repo_config.managed_section_start,
         managed_section_end=repo_config.managed_section_end,

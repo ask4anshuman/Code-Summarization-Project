@@ -19,6 +19,7 @@ class ConfluenceManager:
     base_url: str
     space: str
     parent_page_id: str
+    parent_page_map: Dict[str, str] = field(default_factory=dict)
     username: Optional[str] = None
     api_token: Optional[str] = None
     cache_path: str = ".sql_confluence_cache.yml"
@@ -91,12 +92,36 @@ class ConfluenceManager:
             return None
         return self.get_page_url(page)
 
-    def create_page(self, title: str, content: str) -> Dict[str, Any]:
+    def _normalize_path_prefix(self, path_prefix: str) -> str:
+        normalized = path_prefix.strip().replace("\\", "/").strip("/")
+        if not normalized:
+            return ""
+        return f"{normalized}/"
+
+    def resolve_parent_page_id(self, file_path: Path, repo_root: Path) -> str:
+        relative_path = file_path.resolve().relative_to(repo_root.resolve()).as_posix()
+        best_parent_id = self.parent_page_id
+        best_prefix_length = -1
+
+        for raw_prefix, mapped_parent_id in self.parent_page_map.items():
+            normalized_prefix = self._normalize_path_prefix(raw_prefix)
+            if not normalized_prefix:
+                continue
+            exact_file = normalized_prefix[:-1]
+            if relative_path == exact_file or relative_path.startswith(normalized_prefix):
+                if len(normalized_prefix) > best_prefix_length:
+                    best_prefix_length = len(normalized_prefix)
+                    best_parent_id = mapped_parent_id
+
+        return best_parent_id
+
+    def create_page(self, title: str, content: str, parent_page_id: Optional[str] = None) -> Dict[str, Any]:
         url = f"{self.base_url}/rest/api/content"
+        resolved_parent_page_id = parent_page_id or self.parent_page_id
         payload = {
             "type": "page",
             "title": title,
-            "ancestors": [{"id": int(self.parent_page_id)}],
+            "ancestors": [{"id": int(resolved_parent_page_id)}],
             "space": {"key": self.space},
             "body": {
                 "storage": {
@@ -157,7 +182,8 @@ class ConfluenceManager:
             return updated
         else:
             content = self.merge_managed_section("", summary_text)
-            created = self.create_page(title, content)
+            resolved_parent_page_id = self.resolve_parent_page_id(file_path, repo_root)
+            created = self.create_page(title, content, parent_page_id=resolved_parent_page_id)
             self.cache[str(file_path)] = created["id"]
             self.save_cache()
             return created

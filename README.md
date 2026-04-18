@@ -32,6 +32,26 @@ The repository config uses these LLM keys:
 - `github_repo`: optional GitHub repository in `owner/repo` format for PR integration
 - `github_base_url`: GitHub API base URL, such as `https://api.github.com`
 
+Confluence parent page routing options:
+
+- `confluence_parent_page_id`: default parent page id used when no directory rule matches
+- `confluence_parent_page_map`: optional mapping of directory prefixes to parent page ids
+
+Routing behavior:
+
+- Longest matching path prefix wins (for example, `marts/finance/` wins over `marts/`)
+- If nothing matches, the tool falls back to `confluence_parent_page_id`
+
+Example:
+
+```yaml
+confluence_parent_page_id: "491521"
+confluence_parent_page_map:
+   marts/: "600111"
+   marts/finance/: "600222"
+   staging/: "600333"
+```
+
 Secrets that must be provided via `.env`:
 
 - `LLM_API_KEY`

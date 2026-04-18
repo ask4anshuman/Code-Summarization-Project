@@ -27,6 +27,7 @@ class RepositoryConfig:
     confluence_base_url: str = ""
     confluence_space: str = ""
     confluence_parent_page_id: str = ""
+    confluence_parent_page_map: Dict[str, str] = field(default_factory=dict)
     page_title_prefix: str = ""
     llm_provider: str = ""
     llm_model: str = ""
@@ -52,6 +53,13 @@ class RepositoryConfig:
             raise ValueError("Repository config must include confluence_space.")
         if not self.confluence_parent_page_id:
             raise ValueError("Repository config must include confluence_parent_page_id.")
+        if not isinstance(self.confluence_parent_page_map, dict):
+            raise ValueError("confluence_parent_page_map must be a mapping of path prefixes to page ids.")
+        for path_prefix, parent_id in self.confluence_parent_page_map.items():
+            if not isinstance(path_prefix, str) or not path_prefix.strip():
+                raise ValueError("confluence_parent_page_map keys must be non-empty strings.")
+            if not isinstance(parent_id, str) or not parent_id.strip():
+                raise ValueError("confluence_parent_page_map values must be non-empty page-id strings.")
         if self.github_repo and not self.github_base_url:
             raise ValueError("Repository config must include github_base_url when github_repo is set.")
         if not self.llm_provider:
