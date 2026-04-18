@@ -1,10 +1,13 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 [project]
 name = "sql-confluence-summarizer"
 version = "2026.04.18"
 description = "Standalone Python tool to summarize SQL logic and publish managed updates to Confluence."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 authors = [
   { name = "Your Name", email = "you@example.com" }
 ]
@@ -24,3 +27,16 @@ dependencies = [
 
 [project.scripts]
 sql-confluence-summarizer = "main:main"
+
+[tool.setuptools]
+py-modules = [
+"main",
+"confluence_manager",
+"config",
+"cli",
+"github_manager",
+"llm_service",
+"git_tracker",
+"sql_change_detector",
+"pr_comment"
+]
