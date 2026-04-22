@@ -1,0 +1,67 @@
+flowchart LR
+  subgraph SQLRepo["SQL Repository (Anshuman_SQL_repo)"]
+    A[SQL Files]
+    B[.github/sql_confluence.yml]
+    C[GitHub Actions Workflows]
+    C1[sql-doc-preview-pr.yml]
+    C2[sql-doc-publish-on-merge.yml]
+    C --> C1
+    C --> C2
+  end
+
+  subgraph ToolRepo[Code-Summarization-Project Tool Repo]
+    D[main.py]
+    E[cli.py Orchestrator]
+    F[config.py]
+    G[llm_service.py]
+    H[github_manager.py]
+    I[sql_change_detector.py]
+    J[pr_comment.py]
+    K[confluence_manager.py]
+    L[git_tracker.py]
+  end
+
+  subgraph External[External Services]
+    M[LLM API]
+    N[GitHub API]
+    O[Confluence REST API]
+  end
+
+  subgraph Secrets[Secrets / Env]
+    S1[LLM_API_KEY]
+    S2[SQL_GITHUB_TOKEN]
+    S3[CONFLUENCE_USERNAME]
+    S4[CONFLUENCE_API_TOKEN]
+  end
+
+  C1 -->|Checkout SQL repo and tool repo| D
+  C2 -->|Checkout SQL repo and tool repo| D
+  D --> E
+  E --> F
+  F -->|Load non-secret config| B
+  E --> H
+  E --> I
+  E --> J
+  E --> K
+  E --> G
+
+  S1 --> G
+  S2 --> H
+  S3 --> K
+  S4 --> K
+
+  H -->|PR files, refs, sticky comment upsert| N
+  G -->|POST chat completions| M
+  K -->|Create/Update pages| O
+  L -->|Local git diff for preview/publish| A
+
+  A -->|SQL content| E
+  E -->|publish-merged inject link comment| A
+
+  C1 -->|Run preview-pr command| E
+  E -->|Delta-only snippets + approval checkbox| N
+
+  C2 -->|Run publish-merged command| E
+  E -->|Only if PR merged and checkbox approved| K
+  E -->|Update sticky comment with final links| N
+  E -->|normalize-confluence-links + commit-confluence-links| A
